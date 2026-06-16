@@ -6,7 +6,6 @@ const path = require("path");
 
 const app = express();
 
-// Ensure uploads directory exists
 const uploadDir = path.join(__dirname, "uploads");
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
@@ -16,7 +15,6 @@ const ASSEMBLY_KEY = process.env.ASSEMBLYAI_API_KEY;
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
 const PORT = process.env.PORT || 8080;
 
-// ── CORS ─────────────────────────────────────────────────────────
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", "*");
   res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -26,10 +24,8 @@ app.use((req, res, next) => {
 });
 app.use(express.json());
 
-// ── Health ────────────────────────────────────────────────────────
 app.get("/health", (req, res) => res.json({ status: "ok" }));
 
-// ── POST /analyze ─────────────────────────────────────────────────
 app.post("/analyze", upload.single("video"), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: "No video file provided" });
 
@@ -49,7 +45,6 @@ app.post("/analyze", upload.single("video"), async (req, res) => {
       }
     );
     const audioUrl = uploadRes.data.upload_url;
-    console.log("Uploaded:", audioUrl);
 
     // Step 2: Transcribe
     const transcriptRes = await axios.post(
@@ -58,7 +53,6 @@ app.post("/analyze", upload.single("video"), async (req, res) => {
       { headers: { authorization: ASSEMBLY_KEY, "content-type": "application/json" } }
     );
     const transcriptId = transcriptRes.data.id;
-    console.log("Transcribing:", transcriptId);
 
     let transcript = "";
     while (true) {
@@ -87,12 +81,11 @@ app.post("/analyze", upload.single("video"), async (req, res) => {
 
     const prompt = `You are an expert paid social media ad analyst for Meta and TikTok.
 
-You have the verbatim transcript of a video ad. Analyze it deeply. Every piece of feedback must reference their actual words, hook line, offer, and CTA. Zero generic advice.
+Analyze this video ad transcript and give clear, simple, direct feedback. Reference their actual words.
 
 VIDEO DETAILS:
 - Duration: ${duration}s
 - Format: ${orient}
-- File size: ${size}
 - Audience awareness: ${awarenessMap[awareness] || "Not specified"}
 - Funnel stage: ${funnelMap[funnel] || "Not specified"}
 - Ad type: ${adTypeMap[adType] || "Not specified"}
@@ -102,55 +95,40 @@ TRANSCRIPT:
 ${transcript}
 """
 
-SCORING RULES (by weight):
-1. Hook (first 3s) — HIGHEST. Pattern interrupt? Bold claim? Curiosity gap?
-2. Completion/Pacing — HIGHEST. Every line earns its place? No filler?
-3. Script structure — right formula for awareness level and ad type?
-4. CTA — matched to funnel stage? Not in first 3 seconds?
-5. Engagement design — saves, shares, comment triggers?
-6. Visual direction — does the script suggest strong visuals?
-
-AWARENESS RULES:
-- Unaware: hook must CREATE the problem. Don't pitch yet.
-- Problem Aware: call out the pain, explain why it keeps happening. Villain → Hero.
-- Solution Aware: new mechanism. Old way vs new way. Product as hero.
-- Product Aware: remove doubt only. Testimonials, objections, proof.
-- Most Aware: push the offer. Urgency. Don't over-educate.
-
-Return ONLY raw JSON — no markdown, no backticks:
+Return ONLY raw JSON — no markdown, no backticks. Example format:
 {
-  "score": <0-100>,
-  "verdict": "<Strong Performer | Solid Ad | Needs Work | Low Potential>",
-  "summary": "<2 sentences referencing their actual words and offer>",
-  "hook_quote": "<their exact opening line from the transcript>",
-  "hook_verdict": "<Strong | Needs Work | Weak>",
-  "hook_rewrite": "<improved version using their actual product and offer — not generic>",
-  "suggestions": [
+  "score": 72,
+  "verdict": "Solid Ad",
+  "summary": "The ad opens strong with a relatable pain point and uses a real customer voicemail as proof. However the CTA is too vague for a cold audience and the product reveal comes too late.",
+  "improvements": [
     {
-      "priority": "<high|med|low>",
-      "tag": "<Hook | Script Structure | CTA | Proof | Pacing | Engagement | Visuals>",
-      "issue": "<what is wrong — quote their actual words>",
-      "fix": "<specific rewrite using their actual product, offer, or script>"
+      "issue": "The CTA 'click our link to try for yourself' gives no reason to act now. Cold audiences need urgency or a guarantee to click.",
+      "rewrite": "Try Basic Jane Pain Relief risk-free for 30 days — if you are not feeling less pain, we refund every penny. Click now."
+    },
+    {
+      "issue": "The product name does not appear until 38 seconds in. By then 60% of viewers have already scrolled past.",
+      "rewrite": null
+    },
+    {
+      "issue": "The voicemail is read flatly with no visual support. The emotional peak of the ad has no image to anchor it.",
+      "rewrite": null
     }
   ],
-  "signals": {
-    "hook": <-18 to 18>,
-    "watch": <-15 to 18>,
-    "structure": <-10 to 10>,
-    "cta": <-8 to 8>,
-    "engagement": <-8 to 10>,
-    "visuals": <-6 to 8>
-  }
+  "recommendations": [
+    "Add a 3-second title card after the hook that names the product — something like 'Basic Jane Pain Relief' over the voicemail moment so viewers know what they are watching an ad for.",
+    "Test a version where you open with the voicemail audio playing over a visual of someone walking pain-free — lead with the proof, then explain why it works.",
+    "Add a risk reversal to the CTA. Your 30-day guarantee is your strongest closer — make it the last thing they hear before the link."
+  ]
 }
 
-Give 3-4 suggestions. Every fix must use their actual words, product, or offer. Zero generic advice.`;
+Now analyze the actual transcript above and return JSON in exactly this format. Use their real words, product name, and offer. Zero generic advice.`;
 
     console.log("Calling Claude...");
     const claudeRes = await axios.post(
       "https://api.anthropic.com/v1/messages",
       {
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 2000,
+        max_tokens: 1500,
         messages: [{ role: "user", content: prompt }]
       },
       {
@@ -163,9 +141,8 @@ Give 3-4 suggestions. Every fix must use their actual words, product, or offer. 
     );
 
     const text = claudeRes.data.content.filter(b => b.type === "text").map(b => b.text).join("");
-    console.log("Claude response:", text.slice(0, 100));
     const match = text.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error("Could not parse Claude response: " + text.slice(0, 200));
+    if (!match) throw new Error("Could not parse Claude response");
     const analysis = JSON.parse(match[0]);
 
     res.json({ transcript, analysis });
