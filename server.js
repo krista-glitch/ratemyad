@@ -8,15 +8,19 @@ const app = express();
 const upload = multer({ dest: "uploads/" });
 
 const ASSEMBLY_KEY = process.env.ASSEMBLYAI_API_KEY;
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 8080;
 
-// ── CORS — allow all origins ─────────────────────────────────────
-app.use(cors({
-  origin: "*",
-  methods: ["GET", "POST", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-}));
-app.options("*", cors());
+// ── CORS — explicitly handle all methods and headers ─────────────
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
 app.use(express.json());
 
 // ── Health check ─────────────────────────────────────────────────
