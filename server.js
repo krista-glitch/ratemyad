@@ -33,7 +33,6 @@ app.post("/analyze", upload.single("video"), async (req, res) => {
   const { awareness, funnel, adType, duration, width, height, size } = req.body;
 
   try {
-    // Step 1: Upload to AssemblyAI
     console.log("Uploading to AssemblyAI...");
     const uploadRes = await axios.post(
       "https://api.assemblyai.com/v2/upload",
@@ -46,7 +45,6 @@ app.post("/analyze", upload.single("video"), async (req, res) => {
     );
     const audioUrl = uploadRes.data.upload_url;
 
-    // Step 2: Transcribe
     const transcriptRes = await axios.post(
       "https://api.assemblyai.com/v2/transcript",
       { audio_url: audioUrl, language_code: "en" },
@@ -67,13 +65,12 @@ app.post("/analyze", upload.single("video"), async (req, res) => {
     }
     console.log("Transcript:", transcript.slice(0, 100));
 
-    // Step 3: Build prompt
     const awarenessMap = {
-      unaware: "Unaware — audience does not know they have the problem yet",
-      problem_aware: "Problem Aware — they know the problem but not the solution",
-      solution_aware: "Solution Aware — they know solutions exist but not this product",
-      product_aware: "Product Aware — they know the product but are not sold yet",
-      most_aware: "Most Aware — they want it, just need a reason to buy now",
+      unaware: "Unaware - audience does not know they have the problem yet",
+      problem_aware: "Problem Aware - they know the problem but not the solution",
+      solution_aware: "Solution Aware - they know solutions exist but not this product",
+      product_aware: "Product Aware - they know the product but are not sold yet",
+      most_aware: "Most Aware - they want it, just need a reason to buy now",
     };
     const funnelMap = {
       top: "Top of Funnel (cold)",
@@ -81,53 +78,72 @@ app.post("/analyze", upload.single("video"), async (req, res) => {
       bottom: "Bottom of Funnel (hot)"
     };
     const adTypeMap = {
-      direct: "Direct — Hook to Promise to Risk Reversal to Proof to CTA",
-      indirect: "Indirect — Hook to Story to Free Resource to CTA"
+      direct: "Direct - Hook to Promise to Risk Reversal to Proof to CTA",
+      indirect: "Indirect - Hook to Story to Free Resource to CTA"
     };
     const orient = width && height
       ? (parseInt(width) < parseInt(height) ? "Vertical 9:16" : "Landscape - should be vertical")
       : "Unknown";
 
-    const prompt = "You are an expert paid social media ad analyst for Meta and TikTok, trained on the following ad scripting framework. Use this framework to evaluate every ad.\n\n"
-      + "FRAMEWORK: HOW TO WRITE AD SCRIPTS THAT SELL\n"
-      + "=============================================\n\n"
+    const prompt = "You are an expert, encouraging paid social media ad coach for Meta and TikTok. Your job is to help creators improve their ads — not tear them down. Be constructive, specific, and warm in tone. Always lead with what is working before suggesting improvements.\n\n"
+      + "You are trained on two frameworks. Use them — not generic advice — in all feedback.\n\n"
+      + "=== FRAMEWORK 1: AD SCRIPT STRUCTURE ===\n\n"
       + "MARKET AWARENESS LEVELS:\n"
-      + "- Unaware: Hook must CREATE the problem. Use curiosity hooks, hidden problem reveals, shocking demos. Do not pitch the product yet.\n"
+      + "- Unaware: Hook must CREATE the problem. Use curiosity hooks, hidden problem reveals, shocking demos. Do not pitch yet.\n"
       + "- Problem Aware: Call out the pain. Explain why it keeps happening. Use villain/hero structure.\n"
-      + "- Solution Aware: Introduce new mechanism. Use old way vs new way framing. Product as hero.\n"
-      + "- Product Aware: Remove doubt only. Use testimonials, objection handling, FAQs. Do not re-explain the product.\n"
-      + "- Most Aware: Push the offer. Urgency, discounts, bonuses, deadlines. Do NOT over-educate.\n\n"
-      + "HOOK RULES:\n"
-      + "- Strong hooks: stop the scroll, create curiosity, signal relevance, give a reason to keep watching.\n"
-      + "- Weak: 'Our product exfoliates skin.' Strong: 'This came off my skin after one shower.'\n"
-      + "- A CTA in the first 3 seconds KILLS retention. Never open with buy, click, or shop.\n"
-      + "- Never open with a brand name or logo.\n\n"
-      + "SCRIPT STRUCTURE:\n"
+      + "- Solution Aware: Introduce new mechanism. Old way vs new way. Product as hero.\n"
+      + "- Product Aware: Remove doubt only. Testimonials, objection handling, FAQs. Do not re-explain.\n"
+      + "- Most Aware: Push the offer. Urgency, discounts, deadlines. Do not over-educate.\n\n"
+      + "SCRIPT STRUCTURES:\n"
       + "- Direct: Hook to Promise to Risk Reversal to Proof to CTA\n"
       + "- Indirect: Hook to Story to Proof to Free Resource to CTA\n"
-      + "- E-commerce: Curiosity Hook to Problem to Failed Current Solution to Product to Demo to Benefits to Proof to Offer to CTA\n"
-      + "- Coaches: Hook to Relatable Story to Pain to Discovery to Proof to Free Resource or Offer to CTA\n\n"
+      + "- E-commerce: Curiosity Hook to Problem to Failed Solution to Product to Demo to Proof to Offer to CTA\n"
+      + "- Coaches: Hook to Relatable Story to Pain to Discovery to Proof to Offer to CTA\n\n"
       + "VILLAIN/HERO STRUCTURE:\n"
-      + "- Name what has been failing them (the villain), then introduce the product as the hero.\n"
-      + "- Example villain: 'Your cartridge razor clogs because the head is packed with plastic.' Hero: 'The Leaf Razor solves this with a cleaner metal design.'\n\n"
-      + "PROOF:\n"
-      + "- Add proof before or right after the CTA.\n"
-      + "- Types: testimonials, customer results, reviews, demos, expert validation, social proof, comparison tests.\n\n"
-      + "CTA RULES BY FUNNEL STAGE:\n"
-      + "- Cold/Unaware: Soft CTA — 'Watch the free training', 'See how it works', 'Learn why this happens'\n"
-      + "- Warm/Product Aware: Trust CTA — 'See customer results', 'Read the reviews'\n"
-      + "- Hot/Most Aware: Purchase CTA — 'Get 33% off today', 'Order before the sale ends'\n"
-      + "- NEVER use the same CTA for every audience.\n\n"
-      + "RETENTION:\n"
-      + "- Rehook throughout: 'But that is only half the problem', 'This is where most people mess up'\n"
-      + "- Attention decays at every transition. Pull viewers forward.\n\n"
-      + "OBJECTION HANDLING:\n"
-      + "- Handle objections inside the script: price, efficacy, trust, time.\n"
-      + "- Example: 'I know it is more expensive, but it pays for itself in refill savings.'\n\n"
-      + "VISUAL DIRECTION:\n"
-      + "- Every script line should suggest a visual.\n"
-      + "- 'This helped 500 women' needs customer photos, not just words.\n\n"
-      + "=============================================\n\n"
+      + "- Name what has been failing them (villain), then introduce the product as hero.\n\n"
+      + "PROOF: Add before or right after CTA. Types: testimonials, results, reviews, demos, social proof.\n\n"
+      + "CTA BY FUNNEL STAGE:\n"
+      + "- Cold: Soft CTA - 'See how it works', 'Learn why this happens'\n"
+      + "- Warm: Trust CTA - 'See customer results', 'Read the reviews'\n"
+      + "- Hot: Purchase CTA - 'Get 33% off today', 'Order before the sale ends'\n\n"
+      + "RETENTION: Rehook at every transition. 'But that is only half the problem', 'This is where most people mess up'\n\n"
+      + "OBJECTIONS: Handle inside the script. Price, efficacy, trust, time.\n\n"
+      + "=== FRAMEWORK 2: WINNING HOOK FRAMEWORK ===\n\n"
+      + "THE PURPOSE OF A HOOK: Get the RIGHT people to stop scrolling. A hook that gets views but wrong audience is a bad hook.\n\n"
+      + "EVERY WINNING HOOK DOES 5 THINGS:\n"
+      + "1. Stops the scroll\n"
+      + "2. Creates curiosity\n"
+      + "3. Identifies the audience\n"
+      + "4. Creates emotion\n"
+      + "5. Promises an outcome\n\n"
+      + "UNIVERSAL HOOK FORMULA: Identity + Emotion + Curiosity + Outcome + Novelty\n"
+      + "Example: 'Women over 40: stop making this collagen mistake.'\n\n"
+      + "HOOK HIERARCHY:\n"
+      + "- Level 1 Visual Hook: Viewer sees your face, product, action, environment BEFORE reading a word. Visuals should show the product, result, or problem.\n"
+      + "- Level 2 Identity Hook: Immediately identify who this is for. 'If you are over 40', 'For busy moms', 'Business owners'. Meta uses these for audience matching.\n"
+      + "- Level 3 Emotional Hook: Fear, mistake, warning, frustration, FOMO, curiosity, anger. Strongest emotions: 'Dangerous', 'Stop doing this', 'Why did nobody tell me?'\n\n"
+      + "TOP 10 HOOK CATEGORIES:\n"
+      + "1. Demographic: 'If you are a woman over 40' - best for scaling\n"
+      + "2. If You: 'If you struggle with acne' - best for problem-aware\n"
+      + "3. Contrarian: 'Everything you heard about collagen is wrong' - best for pattern interruption\n"
+      + "4. Why Did Nobody Tell Me: 'I wish I knew this years ago' - best for FOMO\n"
+      + "5. Founder: 'I am Sarah, founder of...' - best for trust\n"
+      + "6. Story: 'I almost quit', 'I wasted $20,000 trying to solve this' - best for engagement\n"
+      + "7. Curiosity Object: Holding product without revealing it - best for physical products\n"
+      + "8. Reaction: Shock, crying, surprise, first impression - best for UGC\n"
+      + "9. Controversy: 'The skincare industry lied to you' - best for comments and shares\n"
+      + "10. Transformation: 'Before vs after', 'Watch this happen' - best for beauty and fitness\n\n"
+      + "TRIGGER WORDS THAT WIN:\n"
+      + "- Curiosity: Secret, Hidden, Unknown, Revealed\n"
+      + "- Fear: Mistake, Dangerous, Risk, Warning\n"
+      + "- Controversy: Scam, Lie, Wrong, Truth\n"
+      + "- Desire: Fast, Easy, Instant, Effortless\n"
+      + "- Frustration: Stop, Avoid, Never, Do not\n\n"
+      + "HOOK LENGTH: Best is 5-8 words. Acceptable up to 12. Avoid 13+. Shorter wins.\n\n"
+      + "INTEREST LOOP: After hook, create a chain of questions. Each answer creates another question. Keeps retention high.\n\n"
+      + "HIGHEST PROBABILITY FORMULA: Identity + Negative Emotion + Curiosity Gap + Specific Outcome + Strong Visual\n"
+      + "Examples: 'Women over 40: stop making this collagen mistake.' or 'Business owners: this is why your ads fail.'\n\n"
+      + "=== END FRAMEWORKS ===\n\n"
       + "VIDEO DETAILS:\n"
       + "- Duration: " + duration + "s\n"
       + "- Format: " + orient + "\n"
@@ -135,33 +151,50 @@ app.post("/analyze", upload.single("video"), async (req, res) => {
       + "- Funnel stage: " + (funnelMap[funnel] || "Not specified") + "\n"
       + "- Ad type: " + (adTypeMap[adType] || "Not specified") + "\n\n"
       + "TRANSCRIPT:\n\"\"\"\n" + transcript + "\n\"\"\"\n\n"
-      + "Analyze this ad using the framework. Quote their actual words. Reference specific framework rules.\n\n"
+      + "Analyze this ad using both frameworks above. Be encouraging and constructive. Quote their actual words.\n\n"
+      + "TONE GUIDELINES:\n"
+      + "- Lead with genuine strengths - find what is actually working\n"
+      + "- Frame improvements as opportunities, not failures\n"
+      + "- Be specific and encouraging, like a good coach\n"
+      + "- Score fairly - a solid ad with one weak area is still a 70+\n"
+      + "- Reserve scores below 50 for ads with multiple serious problems\n\n"
       + "Return ONLY raw JSON, no markdown, no backticks:\n"
       + "{\n"
-      + "  \"score\": 72,\n"
+      + "  \"score\": 74,\n"
       + "  \"verdict\": \"Solid Ad\",\n"
-      + "  \"summary\": \"2-3 sentences about what the ad does well and its biggest weakness. Reference their actual hook and offer.\",\n"
+      + "  \"summary\": \"2-3 warm, specific sentences about what this ad does well and where the biggest opportunity is. Reference their actual hook and offer.\",\n"
+      + "  \"strengths\": [\n"
+      + "    \"Specific thing the ad does well, referencing their actual words or structure.\",\n"
+      + "    \"Second strength.\",\n"
+      + "    \"Third strength.\"\n"
+      + "  ],\n"
       + "  \"improvements\": [\n"
       + "    {\n"
-      + "      \"issue\": \"Exactly what is wrong, quoting their words, referencing the framework rule being violated.\",\n"
-      + "      \"rewrite\": \"A specific rewrite using their product and offer, or null if no rewrite is needed.\"\n"
+      + "      \"issue\": \"One clear opportunity to improve, max 2 sentences, quoting their words, referencing the framework. Encouraging tone.\",\n"
+      + "      \"rewrite\": \"A specific rewrite using their product and offer, or null if no rewrite helps.\"\n"
       + "    },\n"
       + "    {\n"
-      + "      \"issue\": \"Second issue.\",\n"
+      + "      \"issue\": \"Second improvement opportunity, max 2 sentences.\",\n"
       + "      \"rewrite\": null\n"
       + "    },\n"
       + "    {\n"
-      + "      \"issue\": \"Third issue.\",\n"
+      + "      \"issue\": \"Third improvement opportunity, max 2 sentences.\",\n"
       + "      \"rewrite\": null\n"
       + "    }\n"
       + "  ],\n"
       + "  \"recommendations\": [\n"
-      + "    \"First forward-looking recommendation specific to their product and script.\",\n"
+      + "    \"First forward-looking idea to make this ad even stronger. Specific to their product and script.\",\n"
       + "    \"Second recommendation.\",\n"
       + "    \"Third recommendation.\"\n"
       + "  ]\n"
       + "}\n\n"
-      + "Rules: exactly 3 improvements, exactly 3 recommendations. Only include rewrite when a specific line change would help. Everything must reference their actual words and product. Zero generic advice.";
+      + "Rules:\n"
+      + "- Exactly 3 strengths, 3 improvements, 3 recommendations\n"
+      + "- Each improvement issue is max 2 sentences\n"
+      + "- Only include rewrite when a specific line change would meaningfully help\n"
+      + "- Everything references their actual words and product\n"
+      + "- Tone is constructive and encouraging throughout\n"
+      + "- Zero generic advice";
 
     console.log("Calling Claude...");
     const claudeRes = await axios.post(
