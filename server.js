@@ -196,7 +196,7 @@ app.post("/analyze", upload.single("video"), async (req, res) => {
       + "Rules:\n"
       + "- Exactly 3 strengths, 3 improvements, 3 recommendations\n"
       + "- Each strength: exactly 1 sentence, 10-15 words. What is working. No advice.\n"
-      + "- Each improvement issue: 1-2 sentences max. State the problem and what framework rule it violates. Do NOT suggest how to fix it — that is what recommendations are for.\n"
+      + "- Each improvement issue: max 2 sentences, 10-15 words each. State the problem only. No solutions — that is what recommendations are for.\n"
       + "- Rewrite: 1 sentence, 10-15 words. Only when a direct line swap helps. Otherwise null.\n"
       + "- Recommendations: 1-2 sentences each, 10-15 words per sentence. The HOW. Specific and actionable.\n"
       + "- Everything references their actual words and product\n"
