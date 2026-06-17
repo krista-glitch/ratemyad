@@ -201,7 +201,8 @@ app.post("/analyze", upload.single("video"), async (req, res) => {
       + "- Recommendations: 1-2 sentences each, 10-15 words per sentence. The HOW. Specific and actionable.\n"
       + "- Everything references their actual words and product\n"
       + "- Tone is constructive and encouraging throughout\n"
-      + "- Zero generic advice";
+      + "- Zero generic advice\n"
+      + "- CRITICAL: Do not use apostrophes or quote marks inside any JSON string values. Write do not instead of don't, will not instead of won't, you are instead of you're. This prevents JSON parse errors.";
 
     console.log("Calling Claude...");
     const claudeRes = await axios.post(
@@ -224,7 +225,24 @@ app.post("/analyze", upload.single("video"), async (req, res) => {
     console.log("Claude raw:", text.slice(0, 200));
     const match = text.match(/\{[\s\S]*\}/);
     if (!match) throw new Error("Could not parse Claude response: " + text.slice(0, 200));
-    const analysis = JSON.parse(match[0]);
+
+    // Fix unescaped quotes inside JSON string values that break parsing
+    let jsonStr = match[0];
+    // Try parsing as-is first, then attempt cleanup
+    let analysis;
+    try {
+      analysis = JSON.parse(jsonStr);
+    } catch (parseErr) {
+      console.log("JSON parse failed, attempting cleanup:", parseErr.message);
+      // Replace smart/curly quotes with straight quotes
+      jsonStr = jsonStr.replace(/\u2018|\u2019/g, "\'").replace(/\u201C|\u201D/g, '\\"');
+      // Try again
+      try {
+        analysis = JSON.parse(jsonStr);
+      } catch (e2) {
+        throw new Error("JSON parse error: " + parseErr.message + " | Raw: " + jsonStr.slice(0, 300));
+      }
+    }
 
     res.json({ transcript, analysis });
 
