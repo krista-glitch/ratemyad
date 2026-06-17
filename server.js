@@ -260,30 +260,34 @@ app.post("/lead", async (req, res) => {
 
   const firstName = name.split(" ")[0];
   const lastName = name.split(" ").slice(1).join(" ") || "";
+  const GHL_KEY = "pit-5fffb3d2-af38-4996-83ce-593267f0c007";
+  const LOCATION_ID = "pit-5385e15d-87ac-4288-a528-569a33dd52fb";
 
   try {
     const ghlRes = await axios.post(
-      "https://rest.gohighlevel.com/v1/contacts/",
+      "https://services.leadconnectorhq.com/contacts/",
       {
         firstName: firstName,
         lastName: lastName,
         email: email,
-        locationId: "pit-5385e15d-87ac-4288-a528-569a33dd52fb",
+        locationId: LOCATION_ID,
         source: "RateMyAd",
         tags: ["RateMyAd"]
       },
       {
         headers: {
           "Content-Type": "application/json",
-          "Authorization": "Bearer AwCSOoLboX2ewyZacT6x"
+          "Authorization": "Bearer " + GHL_KEY,
+          "Version": "2021-07-28"
         }
       }
     );
-    console.log("GHL contact created:", ghlRes.data.contact ? ghlRes.data.contact.id : "ok");
+    console.log("GHL contact created:", JSON.stringify(ghlRes.data).slice(0, 100));
     res.json({ success: true });
   } catch (err) {
-    console.error("GHL error:", err.response ? JSON.stringify(err.response.data) : err.message);
-    res.status(500).json({ error: "Failed to save lead" });
+    const errData = err.response ? JSON.stringify(err.response.data) : err.message;
+    console.error("GHL error:", errData);
+    res.status(500).json({ error: "Failed to save lead", detail: errData });
   }
 });
 
