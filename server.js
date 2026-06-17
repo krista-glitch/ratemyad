@@ -202,14 +202,16 @@ app.post("/analyze", upload.single("video"), async (req, res) => {
       + "- Everything references their actual words and product\n"
       + "- Tone is constructive and encouraging throughout\n"
       + "- Zero generic advice\n"
-      + "- CRITICAL: Do not use apostrophes or quote marks inside any JSON string values. Write do not instead of don't, will not instead of won't, you are instead of you're. This prevents JSON parse errors.";
+      + "- CRITICAL: Never use apostrophes inside JSON string values. Write: do not, will not, you are, it is, that is, they are, does not, cannot, would not. Never: don't, won't, you're, it's, that's, they're, doesn't, can't, wouldn't. This is a hard rule.\n"
+      + "- Keep every sentence under 15 words. Short sentences reduce JSON errors.\n"
+      + "- Never use double quotes inside string values. Use single quotes only if needed.";
 
     console.log("Calling Claude...");
     const claudeRes = await axios.post(
       "https://api.anthropic.com/v1/messages",
       {
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 1500,
+        model: "claude-sonnet-4-6",
+        max_tokens: 2048,
         messages: [{ role: "user", content: prompt }]
       },
       {
@@ -226,21 +228,52 @@ app.post("/analyze", upload.single("video"), async (req, res) => {
     const match = text.match(/\{[\s\S]*\}/);
     if (!match) throw new Error("Could not parse Claude response: " + text.slice(0, 200));
 
-    // Fix unescaped quotes inside JSON string values that break parsing
     let jsonStr = match[0];
-    // Try parsing as-is first, then attempt cleanup
     let analysis;
     try {
       analysis = JSON.parse(jsonStr);
     } catch (parseErr) {
       console.log("JSON parse failed, attempting cleanup:", parseErr.message);
-      // Replace smart/curly quotes with straight quotes
-      jsonStr = jsonStr.replace(/\u2018|\u2019/g, "\'").replace(/\u201C|\u201D/g, '\\"');
-      // Try again
+      // Replace curly/smart quotes with straight quotes
+      jsonStr = jsonStr
+        .replace(/[‘’]/g, "'")
+        .replace(/[“”]/g, '"')
+        // Replace unescaped apostrophes inside string values
+        .replace(/"([^"]*)"/g, function(match) {
+          return match.replace(/(?<!\\)'/g, "\\'");
+        });
       try {
         analysis = JSON.parse(jsonStr);
       } catch (e2) {
-        throw new Error("JSON parse error: " + parseErr.message + " | Raw: " + jsonStr.slice(0, 300));
+        // Last resort: use a more permissive approach
+        try {
+          // Extract each field manually if full parse fails
+          const scoreMatch = jsonStr.match(/"score"\s*:\s*(\d+)/);
+          const verdictMatch = jsonStr.match(/"verdict"\s*:\s*"([^"]+)"/);
+          const summaryMatch = jsonStr.match(/"summary"\s*:\s*"([^"]+)"/);
+          if (scoreMatch && verdictMatch) {
+            analysis = {
+              score: parseInt(scoreMatch[1]),
+              verdict: verdictMatch[1],
+              summary: summaryMatch ? summaryMatch[1] : "",
+              strengths: ["Your ad has genuine strengths worth building on."],
+              improvements: [
+                { issue: "We had trouble reading the full analysis. Please try again.", rewrite: null },
+                { issue: "Make sure your video has clear audio for best results.", rewrite: null },
+                { issue: "Shorter ads under 30 seconds tend to get better scores.", rewrite: null }
+              ],
+              recommendations: [
+                "Try uploading the video again for a full analysis.",
+                "Ensure the audio in your video is clear and easy to understand.",
+                "Contact Revity Marketing for a personal ad review."
+              ]
+            };
+          } else {
+            throw new Error("JSON parse error: " + parseErr.message + " | Raw: " + jsonStr.slice(0, 300));
+          }
+        } catch(e3) {
+          throw new Error("JSON parse error: " + parseErr.message + " | Raw: " + jsonStr.slice(0, 300));
+        }
       }
     }
 
