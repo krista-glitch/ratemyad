@@ -260,7 +260,7 @@ app.post("/lead", async (req, res) => {
 
   const firstName = name.split(" ")[0];
   const lastName = name.split(" ").slice(1).join(" ") || "";
-  const GHL_KEY = "pit-5fffb3d2-af38-4996-83ce-593267f0c007";
+  const GHL_KEY = "pit-d4ad807e-caf2-4d5c-994b-503d096cb1cb";
   const LOCATION_ID = "pit-5385e15d-87ac-4288-a528-569a33dd52fb";
 
   try {
