@@ -261,7 +261,7 @@ app.post("/lead", async (req, res) => {
   const firstName = name.split(" ")[0];
   const lastName = name.split(" ").slice(1).join(" ") || "";
   const GHL_KEY = "pit-d4ad807e-caf2-4d5c-994b-503d096cb1cb";
-  const LOCATION_ID = "pit-5385e15d-87ac-4288-a528-569a33dd52fb";
+  const LOCATION_ID = "AwCSOoLboX2ewyZacT6x";
 
   try {
     const ghlRes = await axios.post(
