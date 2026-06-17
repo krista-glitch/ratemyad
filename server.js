@@ -254,4 +254,37 @@ app.post("/analyze", upload.single("video"), async (req, res) => {
   }
 });
 
+app.post("/lead", async (req, res) => {
+  const { name, email } = req.body;
+  if (!name || !email) return res.status(400).json({ error: "Name and email required" });
+
+  const firstName = name.split(" ")[0];
+  const lastName = name.split(" ").slice(1).join(" ") || "";
+
+  try {
+    const ghlRes = await axios.post(
+      "https://rest.gohighlevel.com/v1/contacts/",
+      {
+        firstName: firstName,
+        lastName: lastName,
+        email: email,
+        locationId: "pit-5385e15d-87ac-4288-a528-569a33dd52fb",
+        source: "RateMyAd",
+        tags: ["RateMyAd"]
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer AwCSOoLboX2ewyZacT6x"
+        }
+      }
+    );
+    console.log("GHL contact created:", ghlRes.data.contact ? ghlRes.data.contact.id : "ok");
+    res.json({ success: true });
+  } catch (err) {
+    console.error("GHL error:", err.response ? JSON.stringify(err.response.data) : err.message);
+    res.status(500).json({ error: "Failed to save lead" });
+  }
+});
+
 app.listen(PORT, () => console.log("RateMyAd backend on port " + PORT));
